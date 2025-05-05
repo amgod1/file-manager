@@ -1,57 +1,32 @@
-import fs from "node:fs/promises"
 import path from "node:path"
 
-import { logger } from "../utils/logger.js" 
+import { logger } from "../utils/logger.js"
 
 export const handler = async (command, args, currentDir) => {
   try {
-    let newCurrentDir = currentDir 
+    let newCurrentDir = currentDir
 
     switch (command) {
       case "up": {
-        const parentDir = path.dirname(currentDir)
-        if (
-          parentDir !== currentDir &&
-          path.parse(currentDir).root !== currentDir
-        ) {
-          newCurrentDir = parentDir
-        }
+        const { up } = await import("./navigation/up.js")
+        newCurrentDir = up(currentDir)
+
         break
       }
 
       case "cd": {
         if (!args[0]) throw new Error("Path required")
 
-        const targetPath = path.resolve(currentDir, args[0])
-        try {
-          const stat = await fs.stat(targetPath)
-          if (!stat.isDirectory()) throw new Error("Not a directory")
-          newCurrentDir = targetPath
-        } catch (error) {
-          throw new Error("Invalid path")
-        }
+        const { cd } = await import("./navigation/cd.js")
+        newCurrentDir = await cd(currentDir, args[0])
+
         break
       }
 
       case "ls": {
-        try {
-          const files = await fs.readdir(currentDir, { withFileTypes: true })
+        const { ls } = await import("./navigation/ls.js")
+        await ls(currentDir)
 
-          const folders = files
-            .filter((f) => f.isDirectory())
-            .map((f) => ({ Name: f.name, Type: "directory" }))
-
-          const fileList = files
-            .filter((f) => f.isFile())
-            .map((f) => ({ Name: f.name, Type: "file" }))
-
-          const output = [...folders, ...fileList].sort((a, b) =>
-            a.Name.localeCompare(b.Name)
-          )
-          console.table(output)
-        } catch {
-          throw new Error("Operation failed")
-        }
         break
       }
 
@@ -235,7 +210,7 @@ export const handler = async (command, args, currentDir) => {
 
     return {
       dir: newCurrentDir,
-      forceExit: false
+      forceExit: false,
     }
   } catch (error) {
     logger.logRed(`Error: ${error.message}`)
